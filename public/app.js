@@ -247,7 +247,7 @@ function buildBracketGame(game) {
       <div class="b-divider"></div>
       <div class="b-team">
         <span class="b-team-name ${hw ? "winner" : "loser"}">${game.home}</span>
-        <span class="b-team-score ${hw ? "winner" : "loser"}">${game.homeScore}</span>
+        <span class="b-team-score ${hw ? "winner" : "loser'}">${game.homeScore}</span>
       </div>
     </div>`;
 }
@@ -288,11 +288,13 @@ const NFL_TEAMS = [
   { name: "Washington Commanders",  abbr: "wsh", conf: "NFC East" },
 ];
 
+// Store current roster so we can go back to it
+let currentRosterAbbr = null;
+
 function initPlayers() {
   const select = document.getElementById("team-select");
   const btn    = document.getElementById("load-roster-btn");
 
-  // Populate dropdown grouped by conference/division
   const groups = {};
   NFL_TEAMS.forEach(t => {
     if (!groups[t.conf]) groups[t.conf] = [];
@@ -312,17 +314,16 @@ function initPlayers() {
   });
 
   btn.addEventListener("click", () => {
-    const abbr = select.value;
-    if (abbr) loadRoster(abbr);
+    if (select.value) loadRoster(select.value);
   });
 
   select.addEventListener("change", () => {
-    const abbr = select.value;
-    if (abbr) loadRoster(abbr);
+    if (select.value) loadRoster(select.value);
   });
 }
 
 async function loadRoster(abbr) {
+  currentRosterAbbr = abbr;
   const teamName = NFL_TEAMS.find(t => t.abbr === abbr)?.name ?? abbr.toUpperCase();
   loading("player-results", `Loading ${teamName} roster...`);
   try {
@@ -335,30 +336,40 @@ async function loadRoster(abbr) {
       return;
     }
 
-    // ESPN returns athletes grouped by position group
     const allPlayers = athletes.flatMap(group => group.items ?? []);
 
     const cards = allPlayers.map(p => {
-      const name     = p.fullName ?? p.displayName ?? "Unknown";
-      const pos      = p.position?.abbreviation ?? "";
-      const jersey   = p.jersey ? `#${p.jersey}` : "";
-      const headshot = p.headshot?.href ?? null;
-      const id       = p.id;
+      const player = {
+        name:        p.fullName ?? p.displayName ?? "Unknown",
+        position:    p.position?.displayName ?? "",
+        posAbbr:     p.position?.abbreviation ?? "",
+        jersey:      p.jersey ?? "",
+        height:      p.displayHeight ?? "",
+        weight:      p.displayWeight ?? "",
+        age:         p.age ?? "",
+        experience:  p.experience?.years ?? "",
+        college:     p.college?.name ?? "",
+        headshot:    p.headshot?.href ?? null,
+        team:        teamName,
+        teamAbbr:    abbr,
+      };
+      // Encode as base64 to safely pass through onclick
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(player))));
       return `
-        <div class="player-card" onclick="loadPlayer('${id}', '${name.replace(/'/g, "\\'")}')">
-          ${headshot
-            ? `<img class="player-thumb" src="${headshot}" alt="${name}" onerror="this.style.display='none'">`
+        <div class="player-card" onclick="showPlayerFromRoster('${encoded}')">
+          ${player.headshot
+            ? `<img class="player-thumb" src="${player.headshot}" alt="${player.name}" onerror="this.style.display='none'">`
             : `<div class="player-thumb-placeholder"></div>`}
           <div class="player-card-info">
-            <span class="player-card-name">${name}</span>
-            <span class="player-card-meta">${[pos, jersey].filter(Boolean).join(" · ")}</span>
+            <span class="player-card-name">${player.name}</span>
+            <span class="player-card-meta">${[player.posAbbr, player.jersey ? "#" + player.jersey : ""].filter(Boolean).join(" · ")}</span>
           </div>
           <span class="player-card-arrow">›</span>
         </div>`;
     }).join("");
 
     setHTML("player-results", `
-      <p class="section-head">${teamName} Roster — ${allPlayers.length} players</p>
+      <p class="section-head">${teamName} — ${allPlayers.length} players</p>
       <div class="player-list">${cards}</div>`);
   } catch (err) {
     errorMsg("player-results", "Could not load roster.");
@@ -366,45 +377,22 @@ async function loadRoster(abbr) {
   }
 }
 
-async function loadPlayer(id, name) {
-  loading("player-results", `Loading ${name}...`);
-  try {
-    const { info, stats } = await fetchPlayerStats(id);
-    const player = parsePlayerStats(info, stats);
-    renderPlayerProfile(player);
-  } catch (err) {
-    errorMsg("player-results", "Could not load player stats.");
-    console.error(err);
-  }
-}
+function showPlayerFromRoster(encoded) {
+  const p = JSON.parse(decodeURIComponent(escape(atob(encoded))));
 
-function renderPlayerProfile(p) {
   const bio = [
-    p.position   && `<span class="bio-tag">${p.position}</span>`,
-    p.teamAbbr   && `<span class="bio-tag">${p.teamAbbr}</span>`,
-    p.jersey     && `<span class="bio-tag">#${p.jersey}</span>`,
-    p.height     && `<span class="bio-tag">${p.height}</span>`,
-    p.weight     && `<span class="bio-tag">${p.weight}</span>`,
-    p.experience && `<span class="bio-tag">${p.experience} yr${p.experience !== 1 ? "s" : ""}</span>`,
-    p.college    && `<span class="bio-tag">${p.college}</span>`,
-    p.birthPlace && `<span class="bio-tag">${p.birthPlace}</span>`,
+    p.posAbbr      && `<span class="bio-tag">${p.posAbbr}</span>`,
+    p.position     && `<span class="bio-tag">${p.position}</span>`,
+    p.jersey       && `<span class="bio-tag">#${p.jersey}</span>`,
+    p.height       && `<span class="bio-tag">${p.height}</span>`,
+    p.weight       && `<span class="bio-tag">${p.weight}</span>`,
+    p.age          && `<span class="bio-tag">Age ${p.age}</span>`,
+    p.experience !== "" && `<span class="bio-tag">${p.experience} yr${p.experience !== 1 ? "s" : ""} exp</span>`,
+    p.college      && `<span class="bio-tag">${p.college}</span>`,
   ].filter(Boolean).join("");
 
-  const statSections = p.statCategories.map(cat => {
-    const rows = cat.stats.map(s => `
-      <div class="stat-row">
-        <span class="stat-label">${s.label}</span>
-        <span class="stat-value">${s.value}</span>
-      </div>`).join("");
-    return `<div class="stat-section"><p class="stat-section-title">${cat.name}</p>${rows}</div>`;
-  }).join("");
-
-  const noStats = !p.statCategories.length
-    ? `<p class="muted-msg">No stats available for this player.</p>`
-    : "";
-
   setHTML("player-results", `
-    <button class="back-btn" onclick="loadRoster('${p.teamAbbr?.toLowerCase() ?? ""}')">← Back to roster</button>
+    <button class="back-btn" onclick="loadRoster('${p.teamAbbr}')">← Back to ${p.team}</button>
     <div class="player-profile">
       <div class="profile-header">
         ${p.headshot ? `<img class="profile-headshot" src="${p.headshot}" alt="${p.name}" onerror="this.style.display='none'">` : ""}
@@ -414,8 +402,9 @@ function renderPlayerProfile(p) {
           <div class="bio-tags">${bio}</div>
         </div>
       </div>
-      ${noStats}
-      <div class="stat-grid">${statSections}</div>
+      <p class="muted-msg" style="margin-top:1rem;">
+        Detailed season stats are unavailable during the offseason. Check back in September when the 2026 season starts.
+      </p>
     </div>`);
 }
 
