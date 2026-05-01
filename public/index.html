@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NFL Dashboard — 2025-26</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🏈</div>
+      NFL Dashboard
+    </div>
+    <span class="season-badge">2025–26 Season</span>
+  </header>
+
+  <main>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="scores">Scores</button>
+      <button class="tab-btn"        data-tab="standings">Standings</button>
+      <button class="tab-btn"        data-tab="playoffs">Playoffs</button>
+      <button class="tab-btn"        data-tab="players">Players</button>
+    </div>
+
+    <div class="tab-panel active" id="scores">
+      <div id="scores-content"></div>
+    </div>
+
+    <div class="tab-panel" id="standings">
+      <div id="standings-content"></div>
+    </div>
+
+    <div class="tab-panel" id="playoffs">
+      <div id="playoffs-content"></div>
+    </div>
+
+    <div class="tab-panel" id="players">
+      <div class="search-bar">
+        <input id="player-search-input" type="text" placeholder="Search any NFL player..." autocomplete="off" />
+        <button id="player-search-btn">Search</button>
+      </div>
+      <div id="player-results"></div>
+    </div>
+
+  </main>
+
+  <!-- Load order matters: data first, then api helpers, then app logic -->
+  <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
