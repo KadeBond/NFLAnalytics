@@ -540,3 +540,45 @@ main {
   .sb-matchup { font-size: 1.2rem; }
   .scores-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Roster bar (replaces search bar) ───────────────────── */
+.roster-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+}
+
+.roster-bar select {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+
+.roster-bar select:focus { border-color: var(--accent); }
+
+.roster-bar select option,
+.roster-bar select optgroup {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.roster-bar button {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  padding: 10px 20px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.roster-bar button:hover { background: var(--accent2); }

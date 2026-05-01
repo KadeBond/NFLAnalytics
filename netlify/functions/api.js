@@ -3,9 +3,7 @@ const fetch = require("node-fetch");
 const ESPN = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 
 exports.handler = async function(event) {
-  // event.path arrives as /api/scores, /api/standings, etc.
   const path = event.path.replace(/^\/?api\//, "");
-  const params = event.queryStringParameters ?? {};
 
   let url;
 
@@ -13,9 +11,9 @@ exports.handler = async function(event) {
     url = `${ESPN}/scoreboard`;
   } else if (path === "standings") {
     url = `${ESPN}/standings`;
-  } else if (path === "players") {
-    const q = params.q ?? "";
-    url = `https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(q)}&limit=10&type=athlete&sport=football&league=nfl`;
+  } else if (path.match(/^roster\/[a-z]+$/i)) {
+    const abbr = path.split("/")[1].toLowerCase();
+    url = `${ESPN}/teams/${abbr}/roster`;
   } else if (path.match(/^player\/\d+\/stats$/)) {
     const id = path.split("/")[1];
     url = `${ESPN}/athletes/${id}/statistics`;

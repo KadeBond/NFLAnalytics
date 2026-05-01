@@ -247,60 +247,121 @@ function buildBracketGame(game) {
       <div class="b-divider"></div>
       <div class="b-team">
         <span class="b-team-name ${hw ? "winner" : "loser"}">${game.home}</span>
-        <span class="b-team-score ${hw ? "winner" : "loser"}">${game.homeScore}</span>
+        <span class="b-team-score ${hw ? "winner" : "loser'}">${game.homeScore}</span>
       </div>
     </div>`;
 }
 
 // ── Players tab ────────────────────────────────────────────────────────────────
+const NFL_TEAMS = [
+  { name: "Arizona Cardinals",      abbr: "ari", conf: "NFC West" },
+  { name: "Atlanta Falcons",        abbr: "atl", conf: "NFC South" },
+  { name: "Baltimore Ravens",       abbr: "bal", conf: "AFC North" },
+  { name: "Buffalo Bills",          abbr: "buf", conf: "AFC East" },
+  { name: "Carolina Panthers",      abbr: "car", conf: "NFC South" },
+  { name: "Chicago Bears",          abbr: "chi", conf: "NFC North" },
+  { name: "Cincinnati Bengals",     abbr: "cin", conf: "AFC North" },
+  { name: "Cleveland Browns",       abbr: "cle", conf: "AFC North" },
+  { name: "Dallas Cowboys",         abbr: "dal", conf: "NFC East" },
+  { name: "Denver Broncos",         abbr: "den", conf: "AFC West" },
+  { name: "Detroit Lions",          abbr: "det", conf: "NFC North" },
+  { name: "Green Bay Packers",      abbr: "gb",  conf: "NFC North" },
+  { name: "Houston Texans",         abbr: "hou", conf: "AFC South" },
+  { name: "Indianapolis Colts",     abbr: "ind", conf: "AFC South" },
+  { name: "Jacksonville Jaguars",   abbr: "jac", conf: "AFC South" },
+  { name: "Kansas City Chiefs",     abbr: "kc",  conf: "AFC West" },
+  { name: "Las Vegas Raiders",      abbr: "lv",  conf: "AFC West" },
+  { name: "Los Angeles Chargers",   abbr: "lac", conf: "AFC West" },
+  { name: "Los Angeles Rams",       abbr: "lar", conf: "NFC West" },
+  { name: "Miami Dolphins",         abbr: "mia", conf: "AFC East" },
+  { name: "Minnesota Vikings",      abbr: "min", conf: "NFC North" },
+  { name: "New England Patriots",   abbr: "ne",  conf: "AFC East" },
+  { name: "New Orleans Saints",     abbr: "no",  conf: "NFC South" },
+  { name: "New York Giants",        abbr: "nyg", conf: "NFC East" },
+  { name: "New York Jets",          abbr: "nyj", conf: "AFC East" },
+  { name: "Philadelphia Eagles",    abbr: "phi", conf: "NFC East" },
+  { name: "Pittsburgh Steelers",    abbr: "pit", conf: "AFC North" },
+  { name: "San Francisco 49ers",    abbr: "sf",  conf: "NFC West" },
+  { name: "Seattle Seahawks",       abbr: "sea", conf: "NFC West" },
+  { name: "Tampa Bay Buccaneers",   abbr: "tb",  conf: "NFC South" },
+  { name: "Tennessee Titans",       abbr: "ten", conf: "AFC South" },
+  { name: "Washington Commanders",  abbr: "wsh", conf: "NFC East" },
+];
+
 function initPlayers() {
-  const input  = document.getElementById("player-search-input");
-  const btn    = document.getElementById("player-search-btn");
+  const select = document.getElementById("team-select");
+  const btn    = document.getElementById("load-roster-btn");
 
-  let debounceTimer;
-
-  input.addEventListener("keydown", e => {
-    if (e.key === "Enter") runSearch();
+  // Populate dropdown grouped by conference/division
+  const groups = {};
+  NFL_TEAMS.forEach(t => {
+    if (!groups[t.conf]) groups[t.conf] = [];
+    groups[t.conf].push(t);
   });
 
-  input.addEventListener("input", () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      if (input.value.trim().length >= 3) runSearch();
-    }, 400);
+  Object.keys(groups).sort().forEach(conf => {
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = conf;
+    groups[conf].forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.abbr;
+      opt.textContent = t.name;
+      optgroup.appendChild(opt);
+    });
+    select.appendChild(optgroup);
   });
 
-  btn.addEventListener("click", runSearch);
+  btn.addEventListener("click", () => {
+    const abbr = select.value;
+    if (abbr) loadRoster(abbr);
+  });
+
+  select.addEventListener("change", () => {
+    const abbr = select.value;
+    if (abbr) loadRoster(abbr);
+  });
 }
 
-async function runSearch() {
-  const query = document.getElementById("player-search-input").value.trim();
-  if (!query) return;
-
-  loading("player-results", "Searching...");
-
+async function loadRoster(abbr) {
+  const teamName = NFL_TEAMS.find(t => t.abbr === abbr)?.name ?? abbr.toUpperCase();
+  loading("player-results", `Loading ${teamName} roster...`);
   try {
-    const raw     = await searchPlayers(query);
-    const players = parsePlayerSearch(raw);
+    const res  = await fetch(`/api/roster/${abbr}`);
+    const data = await res.json();
+    const athletes = data.athletes ?? [];
 
-    if (!players.length) {
-      setHTML("player-results", `<p class="muted-msg">No players found for "${query}"</p>`);
+    if (!athletes.length) {
+      setHTML("player-results", `<p class="muted-msg">No roster data available for ${teamName}.</p>`);
       return;
     }
 
-    const cards = players.map(p => `
-      <div class="player-card" onclick="loadPlayer('${p.id}', '${p.name.replace(/'/g, "\\'")}')">
-        ${p.headshot ? `<img class="player-thumb" src="${p.headshot}" alt="${p.name}" onerror="this.style.display='none'">` : `<div class="player-thumb-placeholder"></div>`}
-        <div class="player-card-info">
-          <span class="player-card-name">${p.name}</span>
-          <span class="player-card-meta">${[p.position, p.team].filter(Boolean).join(" · ")}</span>
-        </div>
-        <span class="player-card-arrow">›</span>
-      </div>`).join("");
+    // ESPN returns athletes grouped by position group
+    const allPlayers = athletes.flatMap(group => group.items ?? []);
 
-    setHTML("player-results", `<div class="player-list">${cards}</div>`);
+    const cards = allPlayers.map(p => {
+      const name     = p.fullName ?? p.displayName ?? "Unknown";
+      const pos      = p.position?.abbreviation ?? "";
+      const jersey   = p.jersey ? `#${p.jersey}` : "";
+      const headshot = p.headshot?.href ?? null;
+      const id       = p.id;
+      return `
+        <div class="player-card" onclick="loadPlayer('${id}', '${name.replace(/'/g, "\\'")}')">
+          ${headshot
+            ? `<img class="player-thumb" src="${headshot}" alt="${name}" onerror="this.style.display='none'">`
+            : `<div class="player-thumb-placeholder"></div>`}
+          <div class="player-card-info">
+            <span class="player-card-name">${name}</span>
+            <span class="player-card-meta">${[pos, jersey].filter(Boolean).join(" · ")}</span>
+          </div>
+          <span class="player-card-arrow">›</span>
+        </div>`;
+    }).join("");
+
+    setHTML("player-results", `
+      <p class="section-head">${teamName} Roster — ${allPlayers.length} players</p>
+      <div class="player-list">${cards}</div>`);
   } catch (err) {
-    errorMsg("player-results", "Search failed — check your connection.");
+    errorMsg("player-results", "Could not load roster.");
     console.error(err);
   }
 }
@@ -319,13 +380,13 @@ async function loadPlayer(id, name) {
 
 function renderPlayerProfile(p) {
   const bio = [
-    p.position && `<span class="bio-tag">${p.position}</span>`,
-    p.teamAbbr && `<span class="bio-tag">${p.teamAbbr}</span>`,
-    p.jersey   && `<span class="bio-tag">#${p.jersey}</span>`,
-    p.height   && `<span class="bio-tag">${p.height}</span>`,
-    p.weight   && `<span class="bio-tag">${p.weight}</span>`,
+    p.position   && `<span class="bio-tag">${p.position}</span>`,
+    p.teamAbbr   && `<span class="bio-tag">${p.teamAbbr}</span>`,
+    p.jersey     && `<span class="bio-tag">#${p.jersey}</span>`,
+    p.height     && `<span class="bio-tag">${p.height}</span>`,
+    p.weight     && `<span class="bio-tag">${p.weight}</span>`,
     p.experience && `<span class="bio-tag">${p.experience} yr${p.experience !== 1 ? "s" : ""}</span>`,
-    p.college  && `<span class="bio-tag">${p.college}</span>`,
+    p.college    && `<span class="bio-tag">${p.college}</span>`,
     p.birthPlace && `<span class="bio-tag">${p.birthPlace}</span>`,
   ].filter(Boolean).join("");
 
@@ -343,7 +404,7 @@ function renderPlayerProfile(p) {
     : "";
 
   setHTML("player-results", `
-    <button class="back-btn" onclick="resetPlayerSearch()">← Back to results</button>
+    <button class="back-btn" onclick="loadRoster('${p.teamAbbr?.toLowerCase() ?? ""}')">← Back to roster</button>
     <div class="player-profile">
       <div class="profile-header">
         ${p.headshot ? `<img class="profile-headshot" src="${p.headshot}" alt="${p.name}" onerror="this.style.display='none'">` : ""}
@@ -356,11 +417,6 @@ function renderPlayerProfile(p) {
       ${noStats}
       <div class="stat-grid">${statSections}</div>
     </div>`);
-}
-
-function resetPlayerSearch() {
-  setHTML("player-results", "");
-  document.getElementById("player-search-input").focus();
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
