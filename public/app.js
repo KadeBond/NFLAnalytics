@@ -247,7 +247,7 @@ function buildBracketGame(game) {
       <div class="b-divider"></div>
       <div class="b-team">
         <span class="b-team-name ${hw ? "winner" : "loser"}">${game.home}</span>
-        <span class="b-team-score ${hw ? "winner" : "loser'}">${game.homeScore}</span>
+        <span class="b-team-score ${hw ? "winner" : "loser"}">${game.homeScore}</span>
       </div>
     </div>`;
 }
